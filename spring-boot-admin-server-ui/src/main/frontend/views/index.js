@@ -19,6 +19,7 @@ import {view as applicationView} from './applications';
 import sbaInstancesAuditevents from './instances/auditevents';
 import sbaInstancesDetails from './instances/details';
 import sbaInstancesEnv from './instances/env';
+import sbaInstancesMappings from './instances/mappings';
 import sbaInstancesFlyway from './instances/flyway';
 import sbaInstancesTrace from './instances/httptrace';
 import sbaInstancesLiquibase from './instances/liquibase';
@@ -67,6 +68,8 @@ export default router => {
     }, {
       path: 'env', component: sbaInstancesEnv, props: true, name: 'instance/env'
     }, {
+      path: 'mappings', component: sbaInstancesMappings, props: true, name: 'instance/mappings'
+    }, {
       path: 'logfile', component: sbaInstancesLogfile, props: true, name: 'instance/logfile'
     }, {
       path: 'loggers', component: sbaInstancesLoggers, props: true, name: 'instance/loggers'
@@ -94,6 +97,12 @@ export default router => {
     handle: 'Environment',
     order: 100,
     isActive: ({instance}) => instance.hasEndpoint('env')
+  });
+  views.register({
+    name: 'instance/mappings',
+    handle: 'Mappings',
+    order: 150,
+    isActive: ({instance}) => instance.hasEndpoint('mappings')
   });
   views.register({
     name: 'instance/logfile',

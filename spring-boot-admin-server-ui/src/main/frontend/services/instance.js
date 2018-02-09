@@ -72,6 +72,12 @@ class Instance {
     });
   }
 
+  async fetchMappings() {
+    return await axios.get(`instances/${this.id}/actuator/mappings`, {
+      headers: {'Accept': actuatorMimeTypes}
+    });
+  }
+
   async fetchLiquibase() {
     return await axios.get(`instances/${this.id}/actuator/liquibase`, {
       headers: {'Accept': actuatorMimeTypes}
