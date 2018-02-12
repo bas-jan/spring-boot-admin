@@ -73,7 +73,7 @@
           this.error = null;
           try {
             const res = await this.instance.fetchMappings();
-            this.env = res.data;
+            this.mappings = res.data;
           } catch (error) {
             console.warn('Fetching mappings failed:', error);
             this.error = error;

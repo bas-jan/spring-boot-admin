@@ -165,6 +165,12 @@ class Instance {
     });
   }
 
+  async fetchMappings() {
+    return await axios.get(`instances/${this.id}/actuator/mappings`, {
+      headers: {'Accept': actuatorMimeTypes}
+    });
+  }
+    
   streamLogfile(interval) {
     return logtail(`instances/${this.id}/actuator/logfile`, interval);
   }
