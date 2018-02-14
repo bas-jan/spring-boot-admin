@@ -72,11 +72,21 @@
 </template>
 
 <script>
-  export default {
+  const component = {
     data: () => ({
+      // eslint-disable-next-line no-undef
       version: __PROJECT_VERSION__
     })
-  }
+  };
+
+  export default component;
+  export const view = {
+    path: '/about',
+    name: 'about',
+    handle: 'About',
+    order: 200,
+    component: component
+  };
 </script>
 
 <style lang="scss">

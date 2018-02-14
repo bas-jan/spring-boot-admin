@@ -25,9 +25,7 @@
                     </strong>
                 </div>
             </div>
-            <div class="content" v-if="threads">
-                <threads-list :thread-timelines="threads"></threads-list>
-            </div>
+            <threads-list v-if="threads" :thread-timelines="threads"></threads-list>
         </div>
     </section>
 </template>
@@ -62,7 +60,8 @@
         const now = moment.now().valueOf();
         vm.threads = vm.threads || {};
         //initialize with all known live threads, which will be removed from the list if still alive
-        const terminatedThreads = _.entries(vm.threads).filter(([threadId, value]) => value.threadState !== 'TERMINATED')
+        const terminatedThreads = _.entries(vm.threads)
+          .filter(([, value]) => value.threadState !== 'TERMINATED')
           .map(([threadId]) => parseInt(threadId));
 
         threads.forEach(
