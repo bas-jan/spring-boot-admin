@@ -23,11 +23,13 @@
                         <font-awesome-icon class="has-text-danger" icon="exclamation-triangle"></font-awesome-icon>
                         Fetching metrics index failed.
                     </strong>
+                    <p v-text="error.message"></p>
                 </div>
             </div>
             <div class="columns is-desktop">
                 <div class="column is-half-desktop">
                     <details-info v-if="hasInfo" :instance="instance"></details-info>
+                    <details-metadata v-if="hasMetadata" :instance="instance"></details-metadata>
                 </div>
                 <div class="column is-half-desktop">
                     <details-health :instance="instance"></details-health>
@@ -71,6 +73,7 @@
   import detailsMemory from './details-memory';
   import detailsProcess from './details-process';
   import detailsThreads from './details-threads';
+  import detailsMetadata from './details-metadata';
 
   export default {
     components: {
@@ -81,7 +84,8 @@
       detailsDatasources,
       detailsMemory,
       detailsGc,
-      detailsCaches
+      detailsCaches,
+      detailsMetadata
     },
     props: ['instance'],
     data: () => ({
@@ -111,6 +115,9 @@
       hasThreads() {
         return this.metrics.indexOf('jvm.threads.live') >= 0;
       },
+      hasMetadata() {
+        return this.instance && this.instance.registration && this.instance.registration.metadata;
+      }
     },
     created() {
       this.fetchMetricIndex();
