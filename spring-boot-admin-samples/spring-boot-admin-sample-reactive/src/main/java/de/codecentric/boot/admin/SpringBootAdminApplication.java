@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin;
 
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
@@ -29,7 +30,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
@@ -80,17 +80,13 @@ public class SpringBootAdminApplication {
             this.repository = repository;
         }
 
-        @Bean
         @Primary
+        @Bean(initMethod = "start", destroyMethod = "stop")
         public RemindingNotifier remindingNotifier() {
             RemindingNotifier notifier = new RemindingNotifier(filteringNotifier(), repository);
             notifier.setReminderPeriod(Duration.ofMinutes(10));
+            notifier.setCheckReminderInverval(Duration.ofSeconds(10));
             return notifier;
-        }
-
-        @Scheduled(fixedRate = 1_000L)
-        public void remind() {
-            remindingNotifier().sendReminders();
         }
 
         @Bean

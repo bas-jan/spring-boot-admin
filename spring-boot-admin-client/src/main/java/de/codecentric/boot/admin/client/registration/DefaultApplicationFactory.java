@@ -17,11 +17,10 @@
 package de.codecentric.boot.admin.client.registration;
 
 import de.codecentric.boot.admin.client.config.InstanceProperties;
+import de.codecentric.boot.admin.client.registration.metadata.MetadataContributor;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
@@ -47,7 +46,7 @@ public class DefaultApplicationFactory implements ApplicationFactory {
     private final ManagementServerProperties management;
     private final PathMappedEndpoints pathMappedEndpoints;
     private final WebEndpointProperties webEndpoint;
-    private final OffsetDateTime timestamp;
+    private final MetadataContributor metadataContributor;
     private Integer localServerPort;
     private Integer localManagementPort;
 
@@ -56,13 +55,14 @@ public class DefaultApplicationFactory implements ApplicationFactory {
                                      ManagementServerProperties management,
                                      ServerProperties server,
                                      PathMappedEndpoints pathMappedEndpoints,
-                                     WebEndpointProperties webEndpoint) {
+                                     WebEndpointProperties webEndpoint,
+                                     MetadataContributor metadataContributor) {
         this.instance = instance;
         this.management = management;
         this.server = server;
         this.pathMappedEndpoints = pathMappedEndpoints;
         this.webEndpoint = webEndpoint;
-        this.timestamp = OffsetDateTime.now();
+        this.metadataContributor = metadataContributor;
     }
 
     @Override
@@ -81,29 +81,28 @@ public class DefaultApplicationFactory implements ApplicationFactory {
 
     protected String getServiceUrl() {
         if (instance.getServiceUrl() != null) {
-            return UriComponentsBuilder.fromUriString(instance.getServiceUrl()).toUriString();
+            return instance.getServiceUrl();
         }
 
+        return UriComponentsBuilder.fromUriString(getServiceBaseUrl()).path("/").toUriString();
+    }
+
+    protected String getServiceBaseUrl() {
         String baseUrl = instance.getServiceBaseUrl();
-        if (getLocalServerPort() == null && StringUtils.isEmpty(baseUrl)) {
+
+        if (!StringUtils.isEmpty(baseUrl)) {
+            return baseUrl;
+        }
+
+        if (getLocalServerPort() == null) {
             throw new IllegalStateException("couldn't determine local port. Please supply service-base-url.");
         }
 
-        UriComponentsBuilder builder;
-        if (!StringUtils.isEmpty(baseUrl)) {
-            builder = UriComponentsBuilder.fromUriString(baseUrl);
-        } else {
-            builder = UriComponentsBuilder.newInstance()
-                                          .scheme(getScheme(server.getSsl()))
-                                          .host(getServiceHost())
-                                          .port(getLocalServerPort());
-        }
-
-        return builder.path("/").path(getServerContextPath()).toUriString();
-    }
-
-    protected String getServerContextPath() {
-        return "";
+        return UriComponentsBuilder.newInstance()
+                                   .scheme(getScheme(server.getSsl()))
+                                   .host(getServiceHost())
+                                   .port(getLocalServerPort())
+                                   .toUriString();
     }
 
     protected String getManagementUrl() {
@@ -125,10 +124,7 @@ public class DefaultApplicationFactory implements ApplicationFactory {
         }
 
         if (isManagementPortEqual()) {
-            return UriComponentsBuilder.fromHttpUrl(getServiceUrl())
-                                       .path("/")
-                                       .path(getDispatcherServletPrefix())
-                                       .toUriString();
+            return this.getServiceUrl();
         }
 
         Ssl ssl = management.getSsl() != null ? management.getSsl() : server.getSsl();
@@ -137,10 +133,6 @@ public class DefaultApplicationFactory implements ApplicationFactory {
                                    .host(getManagementHost())
                                    .port(getLocalManagementPort())
                                    .toUriString();
-    }
-
-    protected String getDispatcherServletPrefix() {
-        return "";
     }
 
     protected boolean isManagementPortEqual() {
@@ -162,14 +154,10 @@ public class DefaultApplicationFactory implements ApplicationFactory {
     }
 
     protected Map<String, String> getMetadata() {
-        if (instance.getMetadata().containsKey("startup")) {
-            return instance.getMetadata();
-        } else {
-            Map<String, String> metadata = new LinkedHashMap<>();
-            metadata.put("startup", this.timestamp.format(DateTimeFormatter.ISO_DATE_TIME));
-            metadata.putAll(instance.getMetadata());
-            return metadata;
-        }
+        Map<String, String> metadata = new LinkedHashMap<>();
+        metadata.putAll(metadataContributor.getMetadata());
+        metadata.putAll(instance.getMetadata());
+        return metadata;
     }
 
     protected String getServiceHost() {

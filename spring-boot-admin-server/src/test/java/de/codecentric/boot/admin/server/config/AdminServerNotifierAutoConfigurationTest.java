@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin.server.config;
 
 import de.codecentric.boot.admin.server.domain.events.InstanceEvent;
@@ -28,16 +29,19 @@ import de.codecentric.boot.admin.server.notify.MicrosoftTeamsNotifier;
 import de.codecentric.boot.admin.server.notify.NotificationTrigger;
 import de.codecentric.boot.admin.server.notify.Notifier;
 import de.codecentric.boot.admin.server.notify.OpsGenieNotifier;
+import de.codecentric.boot.admin.server.notify.PagerdutyNotifier;
 import de.codecentric.boot.admin.server.notify.SlackNotifier;
 import de.codecentric.boot.admin.server.notify.TelegramNotifier;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.UnicastProcessor;
 import reactor.test.StepVerifier;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import org.junit.After;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.web.client.RestTemplateAutoConfiguration;
 import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -47,9 +51,9 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class AdminServerNotifierConfigurationTest {
-    private static final InstanceEvent APP_DOWN = new InstanceStatusChangedEvent(InstanceId.of("id-2"), 1L,
-            StatusInfo.ofDown());
+public class AdminServerNotifierAutoConfigurationTest {
+    private static final InstanceEvent APP_DOWN = new InstanceStatusChangedEvent(InstanceId.of("id-2"), 0L,
+        StatusInfo.ofDown());
 
     private AnnotationConfigApplicationContext context;
 
@@ -65,11 +69,10 @@ public class AdminServerNotifierConfigurationTest {
         load(TestSingleNotifierConfig.class);
         InstanceEventStore store = context.getBean(InstanceEventStore.class);
 
-        StepVerifier.create(store)
+        StepVerifier.create(context.getBean(TestNotifier.class).getFlux())
                     .expectSubscription()
                     .then(() -> StepVerifier.create(store.append(Collections.singletonList(APP_DOWN))).verifyComplete())
                     .expectNext(APP_DOWN)
-                    .then(() -> assertThat(context.getBean(TestNotifier.class).getEvents()).containsOnly(APP_DOWN))
                     .thenCancel()
                     .verify();
     }
@@ -104,6 +107,11 @@ public class AdminServerNotifierConfigurationTest {
         assertThat(context.getBean(SlackNotifier.class)).isInstanceOf(SlackNotifier.class);
     }
 
+    @Test
+    public void test_pagerduty() {
+        load(null, "spring.boot.admin.notify.pagerduty.service-key:foo");
+        assertThat(context.getBean(PagerdutyNotifier.class)).isInstanceOf(PagerdutyNotifier.class);
+    }
 
     @Test
     public void test_opsgenie() {
@@ -145,6 +153,7 @@ public class AdminServerNotifierConfigurationTest {
         context.register(RestTemplateAutoConfiguration.class);
         context.register(AdminServerMarkerConfiguration.class);
         context.register(AdminServerAutoConfiguration.class);
+        context.register(AdminServerNotifierAutoConfiguration.class);
 
         TestPropertyValues.of(environment).applyTo(context);
         context.refresh();
@@ -152,10 +161,10 @@ public class AdminServerNotifierConfigurationTest {
 
     public static class TestSingleNotifierConfig {
         @Bean
-        public Notifier testNotifier() {
+        @Qualifier("testNotifier")
+        public TestNotifier testNotifier() {
             return new TestNotifier();
         }
-
     }
 
     private static class MailSenderConfig {
@@ -167,12 +176,14 @@ public class AdminServerNotifierConfigurationTest {
 
     private static class TestMultipleNotifierConfig {
         @Bean
-        public Notifier testNotifier1() {
+        @Qualifier("testNotifier1")
+        public TestNotifier testNotifier1() {
             return new TestNotifier();
         }
 
         @Bean
-        public Notifier testNotifier2() {
+        @Qualifier("testNotifier2")
+        public TestNotifier testNotifier2() {
             return new TestNotifier();
         }
     }
@@ -180,27 +191,36 @@ public class AdminServerNotifierConfigurationTest {
     private static class TestMultipleWithPrimaryNotifierConfig {
         @Bean
         @Primary
-        public Notifier testNotifierPrimary() {
+        @Qualifier("testNotifier")
+        public TestNotifier testNotifierPrimary() {
             return new TestNotifier();
         }
 
         @Bean
-        public Notifier testNotifier2() {
+        @Qualifier("testNotifier3")
+        public TestNotifier testNotifier2() {
             return new TestNotifier();
         }
     }
 
     private static class TestNotifier implements Notifier {
-        private List<InstanceEvent> events = new ArrayList<>();
+        private final Flux<InstanceEvent> publishedFlux;
+        private final FluxSink<InstanceEvent> sink;
+
+        private TestNotifier() {
+            UnicastProcessor<InstanceEvent> unicastProcessor = UnicastProcessor.create();
+            this.publishedFlux = unicastProcessor;
+            this.sink = unicastProcessor.sink();
+        }
 
         @Override
         public Mono<Void> notify(InstanceEvent event) {
-            this.events.add(event);
-            return null;
+            this.sink.next(event);
+            return Mono.empty();
         }
 
-        public List<InstanceEvent> getEvents() {
-            return events;
+        public Flux<InstanceEvent> getFlux() {
+            return publishedFlux;
         }
     }
 }

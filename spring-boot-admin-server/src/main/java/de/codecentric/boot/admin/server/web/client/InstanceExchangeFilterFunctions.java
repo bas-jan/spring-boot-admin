@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
-import org.springframework.boot.actuate.endpoint.http.ActuatorMediaType;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
@@ -46,15 +45,16 @@ import org.springframework.web.reactive.function.client.ExchangeFunction;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import static de.codecentric.boot.admin.server.utils.MediaType.ACTUATOR_V1_MEDIATYPE;
+import static de.codecentric.boot.admin.server.utils.MediaType.ACTUATOR_V2_MEDIATYPE;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
-public final class InstanceFilterFunctions {
-    private static final String ATTRIBUTE_INSTANCE = "instance";
-    private static final String ATTRIBUTE_ENDPOINT = "endpointId";
-    private static final MediaType ACTUATOR_V1_MEDIATYPE = MediaType.parseMediaType(ActuatorMediaType.V1_JSON);
-    private static final MediaType ACTUATOR_V2_MEDIATYPE = MediaType.parseMediaType(ActuatorMediaType.V2_JSON);
+public final class InstanceExchangeFilterFunctions {
+    public static final String ATTRIBUTE_INSTANCE = "instance";
+    public static final String ATTRIBUTE_ENDPOINT = "endpointId";
 
-    private InstanceFilterFunctions() {
+    private InstanceExchangeFilterFunctions() {
     }
 
     public static ExchangeFilterFunction setInstance(Instance instance) {
@@ -63,24 +63,24 @@ public final class InstanceFilterFunctions {
 
     public static ExchangeFilterFunction setInstance(Mono<Instance> instance) {
         return (request, next) -> instance.map(
-                i -> ClientRequest.from(request).attribute(ATTRIBUTE_INSTANCE, i).build())
+            i -> ClientRequest.from(request).attribute(ATTRIBUTE_INSTANCE, i).build())
                                           .switchIfEmpty(request.url().isAbsolute() ?
-                                                  Mono.just(request) :
-                                                  Mono.error(new InstanceWebClientException("Instance not found")))
+                                              Mono.just(request) :
+                                              Mono.error(new InstanceWebClientException("Instance not found")))
                                           .flatMap(next::exchange);
     }
 
     public static ExchangeFilterFunction addHeaders(HttpHeadersProvider httpHeadersProvider) {
-        return withInstance((instance, request, next) -> {
+        return toExchangeFilterFunction((instance, request, next) -> {
             ClientRequest newRequest = ClientRequest.from(request)
                                                     .headers(headers -> headers.addAll(
-                                                            httpHeadersProvider.getHeaders(instance)))
+                                                        httpHeadersProvider.getHeaders(instance)))
                                                     .build();
             return next.exchange(newRequest);
         });
     }
 
-    public static ExchangeFilterFunction withInstance(InstanceExchangeFilterFunction delegate) {
+    public static ExchangeFilterFunction toExchangeFilterFunction(InstanceExchangeFilterFunction delegate) {
         return (request, next) -> {
             Optional<?> instance = request.attribute(ATTRIBUTE_INSTANCE);
             if (instance.isPresent() && instance.get() instanceof Instance) {
@@ -90,13 +90,8 @@ public final class InstanceFilterFunctions {
         };
     }
 
-    @FunctionalInterface
-    public interface InstanceExchangeFilterFunction {
-        Mono<ClientResponse> exchange(Instance instance, ClientRequest request, ExchangeFunction next);
-    }
-
     public static ExchangeFilterFunction rewriteEndpointUrl() {
-        return withInstance((instance, request, next) -> {
+        return toExchangeFilterFunction((instance, request, next) -> {
             if (request.url().isAbsolute()) {
                 return next.exchange(request);
             }
@@ -127,7 +122,9 @@ public final class InstanceFilterFunctions {
                                          .subList(1, oldUrl.getPathSegments().size())
                                          .toArray(new String[]{});
         return UriComponentsBuilder.fromUriString(targetUrl)
-                                   .pathSegment(newPathSegments).query(oldUrl.getQuery()).build(true)
+                                   .pathSegment(newPathSegments)
+                                   .query(oldUrl.getQuery())
+                                   .build(true)
                                    .toUri();
     }
 
@@ -164,7 +161,7 @@ public final class InstanceFilterFunctions {
             this.headers = new Headers() {
                 @Override
                 public OptionalLong contentLength() {
-                    return response.headers().contentLength();
+                    return OptionalLong.empty();
                 }
 
                 @Override
@@ -177,6 +174,9 @@ public final class InstanceFilterFunctions {
                     if (headerName.equals(HttpHeaders.CONTENT_TYPE)) {
                         return singletonList(contentType.toString());
                     }
+                    if (headerName.equals(HttpHeaders.CONTENT_LENGTH)) {
+                        return emptyList();
+                    }
                     return response.headers().header(headerName);
                 }
 
@@ -185,6 +185,7 @@ public final class InstanceFilterFunctions {
                     HttpHeaders newHeaders = new HttpHeaders();
                     newHeaders.putAll(response.headers().asHttpHeaders());
                     newHeaders.replace(HttpHeaders.CONTENT_TYPE, singletonList(contentType.toString()));
+                    newHeaders.remove(HttpHeaders.CONTENT_LENGTH);
                     return HttpHeaders.readOnlyHttpHeaders(newHeaders);
                 }
             };

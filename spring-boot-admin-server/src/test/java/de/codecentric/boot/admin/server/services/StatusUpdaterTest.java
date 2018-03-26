@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin.server.services;
 
 import de.codecentric.boot.admin.server.domain.entities.EventsourcingInstanceRepository;
@@ -31,6 +32,7 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.boot.actuate.endpoint.http.ActuatorMediaType;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import com.github.tomakehurst.wiremock.core.Options;
@@ -38,8 +40,10 @@ import com.github.tomakehurst.wiremock.junit.WireMockClassRule;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.okForContentType;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.status;
+import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class StatusUpdaterTest {
@@ -62,14 +66,15 @@ public class StatusUpdaterTest {
         StepVerifier.create(repository.save(instance)).expectNextCount(1).verifyComplete();
 
         updater = new StatusUpdater(repository,
-                new InstanceWebClient(instance -> HttpHeaders.EMPTY, Duration.ofSeconds(5), Duration.ofSeconds(20)));
+            new InstanceWebClient(instance -> HttpHeaders.EMPTY, Duration.ofSeconds(5), Duration.ofSeconds(20)));
     }
 
     @Test
     public void test_update_statusChanged() {
-        String body = "{ \"status\" : \"UP\" }";
-        wireMock.stubFor(
-                get("/health").willReturn(okJson(body).withHeader("Content-Length", Integer.toString(body.length()))));
+        String body = "{ \"status\" : \"UP\", \"details\" : { \"foo\" : \"bar\" } }";
+        wireMock.stubFor(get("/health").willReturn(
+            okForContentType(ActuatorMediaType.V2_JSON, body).withHeader("Content-Length",
+                Integer.toString(body.length()))));
 
         StepVerifier.create(eventStore)
                     .expectSubscription()
@@ -79,6 +84,8 @@ public class StatusUpdaterTest {
                         assertThat(event.getInstance()).isEqualTo(instance.getId());
                         InstanceStatusChangedEvent statusChangedEvent = (InstanceStatusChangedEvent) event;
                         assertThat(statusChangedEvent.getStatusInfo().getStatus()).isEqualTo("UP");
+                        assertThat(statusChangedEvent.getStatusInfo().getDetails()).isEqualTo(
+                            singletonMap("foo", "bar"));
                     })
                     .thenCancel()
                     .verify();
@@ -92,7 +99,7 @@ public class StatusUpdaterTest {
     public void test_update_statusUnchanged() {
         String body = "{ \"status\" : \"UNKNOWN\" }";
         wireMock.stubFor(
-                get("/health").willReturn(okJson(body).withHeader("Content-Type", Integer.toString(body.length()))));
+            get("/health").willReturn(okJson(body).withHeader("Content-Type", Integer.toString(body.length()))));
 
 
         StepVerifier.create(eventStore)
@@ -123,9 +130,9 @@ public class StatusUpdaterTest {
     public void test_update_down() {
         String body = "{ \"foo\" : \"bar\" }";
         wireMock.stubFor(get("/health").willReturn(
-                status(503).withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                           .withHeader("Content-Length", Integer.toString(body.length()))
-                           .withBody(body)));
+            status(503).withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                       .withHeader("Content-Length", Integer.toString(body.length()))
+                       .withBody(body)));
 
         StepVerifier.create(eventStore)
                     .expectSubscription()

@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2017 the original author or authors.
+ * Copyright 2014-2018 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin.server.services;
 
 import de.codecentric.boot.admin.server.domain.entities.Instance;
@@ -28,7 +29,10 @@ import java.util.logging.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ClientResponse;
+
+import static de.codecentric.boot.admin.server.utils.MediaType.ACTUATOR_V2_MEDIATYPE;
 
 /**
  * The StatusUpdater is responsible for updating the status of all or a single application querying
@@ -72,12 +76,16 @@ public class InfoUpdater {
     }
 
     protected Mono<Info> convertInfo(Instance instance, ClientResponse response) {
-        if (response.statusCode().is2xxSuccessful()) {
+        if (response.statusCode().is2xxSuccessful() &&
+            response.headers()
+                    .contentType()
+                    .map(mt -> mt.isCompatibleWith(MediaType.APPLICATION_JSON) ||
+                               mt.isCompatibleWith(ACTUATOR_V2_MEDIATYPE))
+                    .orElse(false)) {
             return response.bodyToMono(RESPONSE_TYPE).map(Info::from).defaultIfEmpty(Info.empty());
         }
-
         log.info("Couldn't retrieve info for {}: {}", instance, response.statusCode());
-        return Mono.just(Info.empty());
+        return response.bodyToMono(Void.class).then(Mono.just(Info.empty()));
     }
 
     protected Info convertInfo(Instance instance, Throwable ex) {

@@ -15,93 +15,133 @@
   -->
 
 <template>
-    <div class="applications-list">
-        <template v-for="application in applications">
-            <div v-if="selected !== application.name" :key="application.name"
-                 @click.stop="select(application.name)"
-                 class="applications-list-item applications-list-item--collapsed">
-                <sba-status :status="application.status"
-                            :date="application.statusTimestamp"
-                            class="applications-list-item__status"></sba-status>
-                <span class="applications-list-item__text">
-                    <span v-text="application.name"></span>
-                    <span class="applications-list-item__secondary">
-                        <a v-if="application.instances.length === 1"
-                           v-text="application.instances[0].registration.serviceUrl || application.instances[0].registration.healthUrl"
-                           :href="application.instances[0].registration.serviceUrl || application.instances[0].registration.healthUrl"></a>
-                        <span v-else
-                              v-text="`${application.instances.length} instances`"></span>
-                    </span>
-                </span>
-                <div class="applications-list-item__text"
-                     v-text="application.version"></div>
-                <div class="applications-list-item__actions">
-                    <sba-icon-button icon="trash"
-                                     v-if="application.isUnregisterable"
-                                     @click.native.stop="unregister(application)">
-                    </sba-icon-button>
-                </div>
-            </div>
-            <div v-else :key="application.name"
-                 v-on-clickaway="deselect"
-                 class="applications-list-item applications-list-item--detailed">
-                <div class="applications-list-item__header"
-                     @click.stop="deselect()">
-                    <div class="applications-list-item__header-text" v-text="application.name"></div>
-                    <div class="applications-list-item__header-actions">
-                        <sba-icon-button icon="trash"
-                                         v-if="application.isUnregisterable"
-                                         @click.native.stop="unregister(application)">
-                        </sba-icon-button>
-                    </div>
-                </div>
-                <ul class="applications-list-item__instance-list">
-                    <li v-for="instance in application.instances" :key="instance.id"
-                        class="applications-list-item__instance"
-                        @click.stop="showDetails(instance)">
-                        <sba-status :status="instance.statusInfo.status"
-                                    :date="instance.statusTimestamp"
-                                    class="applications-list-item__status"></sba-status>
-                        <span class="applications-list-item__text">
-                            <a v-text="instance.registration.serviceUrl || instance.registration.healthUrl"
-                               :href="instance.registration.serviceUrl || instance.registration.healthUrl"
-                               @click.stop></a>
-                            <span v-text="instance.id"
-                                  class="applications-list-item__secondary"></span>
-                        </span>
-                        <span v-text="instance.info.version"
-                              class="applications-list-item__text"></span>
-                        <div class="applications-list-item__actions">
-                            <sba-icon-button icon="trash"
-                                             v-if="instance.isUnregisterable"
-                                             @click.native.stop="unregister(instance)">
-                            </sba-icon-button>
-                        </div>
-                    </li>
-                </ul>
-            </div>
+  <div class="applications-list">
+    <div class="application-list__item card" :class="{'is-active': selected === application.name}"
+         v-for="application in applications" :key="application.name" :id=" application.name"
+         v-on-clickaway="(event) => selected === application.name && deselect(event)">
+      <header class="hero application-list__item__header"
+              :class="getHeaderClass(application)"
+              @click.stop="select(application.name)">
+        <template v-if="selected !== application.name">
+          <sba-status :status="application.status"
+                      :date="application.statusTimestamp"
+                      class="application-list__item__header__status"/>
+          <p class="application-list__item__header__name">
+            <span v-text="application.name"/><br>
+            <span class="is-muted">
+              <a v-if="application.instances.length === 1"
+                 v-text="application.instances[0].registration.serviceUrl || application.instances[0].registration.healthUrl"
+                 :href="application.instances[0].registration.serviceUrl || application.instances[0].registration.healthUrl"/>
+              <span v-else
+                    v-text="`${application.instances.length} instances`"/>
+            </span>
+          </p>
+          <p class="application-list__item__header__version" v-text="application.version"/>
+          <div class="application-list__item__header__actions">
+            <sba-icon-button icon="trash"
+                             v-if="application.isUnregisterable"
+                             @click.native.stop="unregister(application)"/>
+          </div>
         </template>
+        <template v-else>
+          <h1 class="title is-size-5 application-list__item__header__name" v-text="application.name"/>
+          <div class="application-list__item__header__actions">
+            <sba-icon-button icon="trash"
+                             v-if="application.isUnregisterable"
+                             @click.native.stop="unregister(application)"/>
+          </div>
+        </template>
+      </header>
+      <div class="card-content" v-if="selected === application.name">
+        <table class="table is-hoverable is-selectable is-fullwidth application__instances">
+          <tbody>
+            <tr v-for="instance in application.instances" :key="instance.id" @click.stop="showDetails(instance)">
+              <td class="instance__status">
+                <sba-status :status="instance.statusInfo.status" :date="instance.statusTimestamp"/>
+              </td>
+              <td>
+                <a v-text="instance.registration.serviceUrl || instance.registration.healthUrl"
+                   :href="instance.registration.serviceUrl || instance.registration.healthUrl"
+                   @click.stop/><br>
+                <span class="is-muted" v-text="instance.id"/>
+              </td>
+              <td>
+                <span v-text="instance.info.version"/>
+              </td>
+              <td class="instance__actions">
+                <sba-icon-button icon="trash"
+                                 v-if="instance.isUnregisterable"
+                                 @click.native.stop="unregister(instance)"/>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
+  </div>
 </template>
 
 <script>
   import {directive as onClickaway} from 'vue-clickaway';
 
   export default {
+    props: {
+      applications: {
+        type: Array,
+        default: () => []
+      },
+      selected: {
+        type: String,
+        default: null
+      }
+    },
     directives: {onClickaway},
     data: () => ({
-      selected: null,
       errors: []
     }),
     methods: {
       select(name) {
-        this.selected = name;
+        this.$router.replace({name: 'applications', params: {selected: name}});
       },
-      deselect() {
-        this.selected = null;
+      deselect(event) {
+        if (event && event.target instanceof HTMLAnchorElement) {
+          return;
+        }
+        this.$router.replace({name: 'applications'});
       },
       showDetails(instance) {
-        this.$router.push(`/instances/${instance.id}`)
+        this.$router.push({name: 'instance/details', params: {instanceId: instance.id}});
+      },
+      async scrollIntoView(id, behavior) {
+        if (id) {
+          await this.$nextTick();
+          const el = document.getElementById(id);
+          if (el) {
+            const top = el.getBoundingClientRect().top + window.scrollY - 100;
+            window.scroll({top, left: window.scrollX, behavior: behavior || 'smooth'});
+          }
+        }
+      },
+      getHeaderClass(application) {
+        if (this.selected !== application.name) {
+          return 'is-selectable';
+        }
+        if (application.status === 'UP') {
+          return 'is-primary';
+        }
+        if (application.status === 'RESTRICTED') {
+          return 'is-warning';
+        }
+        if (application.status === 'DOWN') {
+          return 'is-danger';
+        }
+        if (application.status === 'OUT_OF_SERVICE') {
+          return 'is-danger';
+        }
+        if (application.status === 'OFFLINE') {
+          return 'is-light';
+        }
+        return 'is-light';
       },
       async unregister(item) {
         try {
@@ -111,114 +151,91 @@
         }
       }
     },
-
-    props: {
-      'applications': Array
+    mounted() {
+      return this.scrollIntoView(this.selected, 'instant');
+    },
+    watch: {
+      selected(newVal) {
+        return this.scrollIntoView(newVal);
+      }
     }
   }
 </script>
 
 <style lang="scss">
-    @import "~@/assets/css/utilities";
+  @import "~@/assets/css/utilities";
 
-    $list-background-color: $white !default;
-    $list-shadow: 0 2px 3px rgba($black, 0.1), 0 0 0 1px rgba($black, 0.1) !default;
-    $list-color: $text !default;
+  .application-list__item {
+    transition: all $easing $speed;
 
-    .applications-list-item {
-        background-color: $list-background-color;
-        box-shadow: $list-shadow;
-        color: $list-color;
-        max-width: 100%;
-
-        &--collapsed {
-            display: flex;
-            align-items: center;
-            overflow: hidden;
-            cursor: pointer;
-            &:hover {
-                background-color: $white-bis;
-            }
-        }
-
-        &--detailed {
-            display: flex;
-            flex-direction: column;
-            margin: ($gap / 2) 0;
-        }
-
-        &__status {
-            width: 40px;
-            padding-left: ($gap / 2);
-        }
-
-        &__text {
-            padding-left: ($gap / 2);
-            display: inline-flex;
-            align-items: flex-start;
-            flex-direction: column;
-            flex-grow: 1;
-            flex-basis: 0;
-        }
-
-        &__secondary {
-            color: $grey-light;
-            font-size: $size-6;
-        }
-
-        &__actions {
-            justify-self: end;
-            padding-right: ($gap / 2);
-            opacity: 0;
-            transition: all $easing $speed;
-            will-change: opacity;
-        }
-
-        *:hover > &__actions {
-            opacity: 1;
-        }
-
-        &__header {
-            display: flex;
-            height: 48px;
-            align-items: center;
-            overflow: hidden;
-            cursor: pointer;
-
-            &-text {
-                color: $grey-darker;
-                font-weight: $weight-semibold;
-                padding-left: $gap;
-                flex-grow: 1;
-            }
-
-            &-actions {
-                justify-self: end;
-                padding-right: $gap;
-            }
-        }
-
-        &__instance-list {
-            list-style: none;
-            margin: 0 ($gap / 2) ($gap / 2) ($gap / 2);
-            padding: 0;
-        }
-
-        &__instance {
-            display: flex;
-            height: 48px;
-            overflow: hidden;
-            background-color: #fff;
-            align-items: center;
-            cursor: pointer;
-            &:hover {
-                background-color: $white-bis;
-            }
-
-            & + & {
-                border-top: 1px solid rgba(0, 0, 0, .12);
-                margin-top: 0;
-            }
-        }
+    &.is-active {
+      margin: 0.75rem -0.75rem;
+      max-width: unset;
     }
+
+    &__header {
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-start;
+      align-items: center;
+
+      *:not(.is-active) > &:hover {
+        background-color: $white-bis;
+      }
+
+      & > *:not(:first-child) {
+        margin-left: 12px;
+      }
+
+      &__status {
+        width: $gap;
+      }
+
+      &__name,
+      &__version {
+        flex-grow: 1;
+        flex-basis: 50%;
+      }
+
+      &__name.title {
+        margin: 0.75rem 0;
+      }
+
+      &__actions {
+        justify-self: end;
+        opacity: 0;
+        transition: all $easing $speed;
+        will-change: opacity;
+        margin-right: ($gap / 2);
+
+        *:hover > &,
+        *.is-active & {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  .application__instances td {
+    vertical-align: middle;
+  }
+
+  .instance {
+    &__status {
+      width: $gap;
+    }
+
+    &__actions {
+      text-align: right;
+      opacity: 0;
+      transition: all $easing $speed;
+      will-change: opacity;
+      margin-right: $gap;
+
+      *:hover > & {
+        opacity: 1;
+      }
+    }
+  }
+
 </style>

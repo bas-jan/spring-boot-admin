@@ -23,7 +23,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.bind.convert.DefaultDurationUnit;
+import org.springframework.boot.convert.DurationUnit;
 
 import static java.util.Arrays.asList;
 
@@ -44,7 +44,7 @@ public class AdminServerProperties {
      * The metadata keys which should be sanitized when serializing to json
      */
     private String[] metadataKeysToSanitize = new String[]{".*password$", ".*secret$", ".*key$", ".*$token$",
-            ".*credentials.*", ".*vcap_services$"};
+        ".*credentials.*", ".*vcap_services$"};
 
     /**
      * For Spring Boot 2.x applications the endpoints should be discovered automatically using the actuator links.
@@ -52,7 +52,7 @@ public class AdminServerProperties {
      * If the path differs from the id you can specify this as id:path (e.g. health:ping).
      */
     private String[] probedEndpoints = {"health", "env", "metrics", "httptrace:trace", "threaddump:dump", "jolokia",
-            "info", "logfile", "refresh", "flyway", "liquibase", "heapdump", "loggers", "auditevents"};
+        "info", "logfile", "refresh", "flyway", "liquibase", "heapdump", "loggers", "auditevents"};
 
     public void setContextPath(String contextPath) {
         this.contextPath = PathUtils.normalizePath(contextPath);
@@ -91,26 +91,26 @@ public class AdminServerProperties {
         /**
          * Time interval to update the status of instances with expired statusInfo
          */
-        @DefaultDurationUnit(ChronoUnit.MILLIS)
+        @DurationUnit(ChronoUnit.MILLIS)
         private Duration period = Duration.ofMillis(10_000L);
 
         /**
          * Lifetime of status. The status won't be updated as long the last status isn't
          * expired.
          */
-        @DefaultDurationUnit(ChronoUnit.MILLIS)
+        @DurationUnit(ChronoUnit.MILLIS)
         private Duration statusLifetime = Duration.ofMillis(10_000L);
 
         /**
          * Connect timeout when querying the instances' status and info.
          */
-        @DefaultDurationUnit(ChronoUnit.MILLIS)
+        @DurationUnit(ChronoUnit.MILLIS)
         private Duration connectTimeout = Duration.ofMillis(2_000);
 
         /**
          * read timeout when querying the instances' status and info.
          */
-        @DefaultDurationUnit(ChronoUnit.MILLIS)
+        @DurationUnit(ChronoUnit.MILLIS)
         private Duration readTimeout = Duration.ofMillis(20_000);
 
     }

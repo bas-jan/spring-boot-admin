@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin.server.config;
 
 import de.codecentric.boot.admin.server.domain.entities.InstanceRepository;
@@ -33,21 +34,31 @@ import de.codecentric.boot.admin.server.services.endpoints.ChainingStrategy;
 import de.codecentric.boot.admin.server.services.endpoints.ProbeEndpointsStrategy;
 import de.codecentric.boot.admin.server.services.endpoints.QueryIndexEndpointStrategy;
 import de.codecentric.boot.admin.server.web.client.BasicAuthHttpHeaderProvider;
+import de.codecentric.boot.admin.server.web.client.CompositeHttpHeadersProvider;
 import de.codecentric.boot.admin.server.web.client.HttpHeadersProvider;
+import de.codecentric.boot.admin.server.web.client.InstanceExchangeFilterFunction;
+import de.codecentric.boot.admin.server.web.client.InstanceExchangeFilterFunctions;
 import de.codecentric.boot.admin.server.web.client.InstanceWebClient;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.reactive.function.client.WebClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+import org.springframework.core.annotation.Order;
 
 @Configuration
 @ConditionalOnBean(AdminServerMarkerConfiguration.Marker.class)
 @EnableConfigurationProperties(AdminServerProperties.class)
-@Import({AdminServerWebConfiguration.class, AdminServerNotifierConfiguration.class})
+@Import({AdminServerWebConfiguration.class})
 public class AdminServerAutoConfiguration {
     private final AdminServerProperties adminServerProperties;
 
@@ -69,8 +80,16 @@ public class AdminServerAutoConfiguration {
     }
 
     @Bean
+    @Primary
     @ConditionalOnMissingBean
-    public HttpHeadersProvider httpHeadersProvider() {
+    public CompositeHttpHeadersProvider httpHeadersProvider(Collection<HttpHeadersProvider> delegates) {
+        return new CompositeHttpHeadersProvider(delegates);
+    }
+
+    @Bean
+    @Order(0)
+    @ConditionalOnMissingBean
+    public BasicAuthHttpHeaderProvider basicAuthHttpHeadersProvider() {
         return new BasicAuthHttpHeaderProvider();
     }
 
@@ -94,7 +113,7 @@ public class AdminServerAutoConfiguration {
     public EndpointDetector endpointDetector(InstanceRepository instanceRepository,
                                              InstanceWebClient instanceWebClient) {
         ChainingStrategy strategy = new ChainingStrategy(new QueryIndexEndpointStrategy(instanceWebClient),
-                new ProbeEndpointsStrategy(instanceWebClient, adminServerProperties.getProbedEndpoints()));
+            new ProbeEndpointsStrategy(instanceWebClient, adminServerProperties.getProbedEndpoints()));
         return new EndpointDetector(instanceRepository, strategy);
     }
 
@@ -128,4 +147,17 @@ public class AdminServerAutoConfiguration {
     public SnapshottingInstanceRepository instanceRepository(InstanceEventStore eventStore) {
         return new SnapshottingInstanceRepository(eventStore);
     }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public InstanceWebClient instanceWebClient(HttpHeadersProvider httpHeadersProvider,
+                                               ObjectProvider<List<InstanceExchangeFilterFunction>> filtersProvider) {
+        List<InstanceExchangeFilterFunction> filters = filtersProvider.getIfAvailable(Collections::emptyList);
+        WebClientCustomizer customizer = (webClient) -> filters.forEach(instanceFilter -> webClient.filter(
+            InstanceExchangeFilterFunctions.toExchangeFilterFunction(instanceFilter)));
+
+        return new InstanceWebClient(httpHeadersProvider, adminServerProperties.getMonitor().getConnectTimeout(),
+            adminServerProperties.getMonitor().getReadTimeout(), customizer);
+    }
+
 }

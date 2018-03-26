@@ -17,6 +17,7 @@
 import '@/assets/css/base.scss';
 import logoDanger from '@/assets/img/favicon-danger.png';
 import logoOk from '@/assets/img/favicon.png';
+import '@/assets/img/icon-spring-boot-admin.svg';
 import moment from 'moment';
 import Vue from 'vue';
 import VueRouter from 'vue-router';
@@ -58,7 +59,12 @@ new Vue({
   router,
   el: '#app',
   render(h) {
-    return h(sbaShell);
+    return h(sbaShell, {
+      props: {
+        applications: this.applications,
+        error: this.error
+      }
+    });
   },
   data: {
     views: createViews(router),

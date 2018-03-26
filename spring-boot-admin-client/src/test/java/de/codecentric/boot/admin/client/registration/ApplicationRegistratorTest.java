@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin.client.registration;
 
 import de.codecentric.boot.admin.client.config.ClientProperties;
@@ -28,6 +29,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -51,7 +53,7 @@ public class ApplicationRegistratorTest {
     public void setup() {
         restTemplate = mock(RestTemplate.class);
 
-        client = new ClientProperties();
+        client = new ClientProperties(new MockEnvironment());
         client.setUrl(new String[]{"http://sba:8080", "http://sba2:8080"});
 
         ApplicationFactory factory = mock(ApplicationFactory.class);
@@ -71,7 +73,7 @@ public class ApplicationRegistratorTest {
     @Test
     public void register_successful() {
         when(restTemplate.exchange(isA(String.class), eq(HttpMethod.POST), isA(HttpEntity.class),
-                eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED));
+            eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED));
 
         assertThat(registrator.register()).isTrue();
 
@@ -81,14 +83,14 @@ public class ApplicationRegistratorTest {
                                                 .serviceUrl("http://localhost:8080")
                                                 .build();
         verify(restTemplate).exchange(eq("http://sba:8080/instances"), eq(HttpMethod.POST),
-                eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
+            eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
     }
 
 
     @Test
     public void register_failed() {
         when(restTemplate.exchange(isA(String.class), eq(HttpMethod.POST), isA(HttpEntity.class),
-                eq(RESPONSE_TYPE))).thenThrow(new RestClientException("Error"));
+            eq(RESPONSE_TYPE))).thenThrow(new RestClientException("Error"));
 
         assertThat(registrator.register()).isFalse();
     }
@@ -96,9 +98,9 @@ public class ApplicationRegistratorTest {
     @Test
     public void register_retry() {
         when(restTemplate.exchange(isA(String.class), eq(HttpMethod.POST), isA(HttpEntity.class),
-                eq(RESPONSE_TYPE))).thenThrow(new RestClientException("Error"));
+            eq(RESPONSE_TYPE))).thenThrow(new RestClientException("Error"));
         when(restTemplate.exchange(isA(String.class), eq(HttpMethod.POST), isA(HttpEntity.class),
-                eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED));
+            eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED));
 
         assertThat(registrator.register()).isTrue();
     }
@@ -106,7 +108,7 @@ public class ApplicationRegistratorTest {
     @Test
     public void deregister() {
         when(restTemplate.exchange(isA(String.class), eq(HttpMethod.POST), isA(HttpEntity.class),
-                eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED));
+            eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED));
         registrator.register();
         assertThat(registrator.getRegisteredId()).isEqualTo("-id-");
         registrator.deregister();
@@ -120,7 +122,7 @@ public class ApplicationRegistratorTest {
         client.setRegisterOnce(false);
 
         when(restTemplate.exchange(isA(String.class), eq(HttpMethod.POST), isA(HttpEntity.class),
-                eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED));
+            eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED));
 
         assertThat(registrator.register()).isTrue();
 
@@ -130,9 +132,9 @@ public class ApplicationRegistratorTest {
                                                 .serviceUrl("http://localhost:8080")
                                                 .build();
         verify(restTemplate).exchange(eq("http://sba:8080/instances"), eq(HttpMethod.POST),
-                eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
+            eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
         verify(restTemplate).exchange(eq("http://sba2:8080/instances"), eq(HttpMethod.POST),
-                eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
+            eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
     }
 
     @Test
@@ -140,8 +142,8 @@ public class ApplicationRegistratorTest {
         client.setRegisterOnce(false);
 
         when(restTemplate.exchange(isA(String.class), eq(HttpMethod.POST), isA(HttpEntity.class),
-                eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED))
-                                   .thenThrow(new RestClientException("Error"));
+            eq(RESPONSE_TYPE))).thenReturn(new ResponseEntity<>(singletonMap("id", "-id-"), HttpStatus.CREATED))
+                               .thenThrow(new RestClientException("Error"));
 
         assertThat(registrator.register()).isTrue();
 
@@ -151,9 +153,9 @@ public class ApplicationRegistratorTest {
                                                 .serviceUrl("http://localhost:8080")
                                                 .build();
         verify(restTemplate).exchange(eq("http://sba:8080/instances"), eq(HttpMethod.POST),
-                eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
+            eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
         verify(restTemplate).exchange(eq("http://sba2:8080/instances"), eq(HttpMethod.POST),
-                eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
+            eq(new HttpEntity<>(applicationRef, headers)), eq(RESPONSE_TYPE));
     }
 
     @Test
@@ -161,7 +163,7 @@ public class ApplicationRegistratorTest {
         client.setRegisterOnce(false);
 
         when(restTemplate.exchange(isA(String.class), eq(HttpMethod.POST), isA(HttpEntity.class),
-                eq(RESPONSE_TYPE))).thenThrow(new RestClientException("Error"));
+            eq(RESPONSE_TYPE))).thenThrow(new RestClientException("Error"));
 
         assertThat(registrator.register()).isFalse();
     }

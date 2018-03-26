@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin;
 
 import de.codecentric.boot.admin.server.config.AdminServerProperties;
@@ -21,15 +22,18 @@ import de.codecentric.boot.admin.server.domain.entities.InstanceRepository;
 import de.codecentric.boot.admin.server.notify.LoggingNotifier;
 import de.codecentric.boot.admin.server.notify.RemindingNotifier;
 import de.codecentric.boot.admin.server.notify.filter.FilteringNotifier;
+import de.codecentric.boot.admin.server.web.client.InstanceExchangeFilterFunction;
 
 import java.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
@@ -38,12 +42,15 @@ import org.springframework.security.web.authentication.SavedRequestAwareAuthenti
 @EnableAutoConfiguration
 @EnableAdminServer
 public class SpringBootAdminApplication {
+
+    private static final Logger log = LoggerFactory.getLogger(SpringBootAdminApplication.class);
+
     public static void main(String[] args) {
         SpringApplication.run(SpringBootAdminApplication.class, args);
     }
 
-    @Configuration
     @Profile("insecure")
+    @Configuration
     public static class SecurityPermitAllConfig extends WebSecurityConfigurerAdapter {
         @Override
         protected void configure(HttpSecurity http) throws Exception {
@@ -52,8 +59,9 @@ public class SpringBootAdminApplication {
         }
     }
 
-    @Configuration
     @Profile("secure")
+// tag::configuration-spring-security[]
+    @Configuration
     public static class SecuritySecureConfig extends WebSecurityConfigurerAdapter {
         private final String adminContextPath;
 
@@ -79,6 +87,17 @@ public class SpringBootAdminApplication {
             // @formatter:on
         }
     }
+// end::configuration-spring-security[]
+
+    @Bean
+    public InstanceExchangeFilterFunction auditLog() {
+        return (instance, request, next) -> {
+            if (HttpMethod.DELETE.equals(request.method()) || HttpMethod.POST.equals(request.method())) {
+                log.info("{} for {} on {}", request.method(), instance.getId(), request.url());
+            }
+            return next.exchange(request);
+        };
+    }
 
     @Configuration
     public static class NotifierConfig {
@@ -88,17 +107,13 @@ public class SpringBootAdminApplication {
             this.repository = repository;
         }
 
-        @Bean
         @Primary
+        @Bean(initMethod = "start", destroyMethod = "stop")
         public RemindingNotifier remindingNotifier() {
             RemindingNotifier notifier = new RemindingNotifier(filteringNotifier(), repository);
             notifier.setReminderPeriod(Duration.ofMinutes(10));
+            notifier.setCheckReminderInverval(Duration.ofSeconds(10));
             return notifier;
-        }
-
-        @Scheduled(fixedRate = 1_000L)
-        public void remind() {
-            remindingNotifier().sendReminders();
         }
 
         @Bean

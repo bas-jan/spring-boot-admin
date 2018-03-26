@@ -15,50 +15,66 @@
   -->
 
 <template>
-    <sba-panel :title="`Cache: ${cacheName}`" v-if="hasLoaded">
-        <div>
-            <div v-if="error" class="message is-danger">
-                <div class="message-body">
-                    <strong>
-                        <font-awesome-icon class="has-text-danger" icon="exclamation-triangle"></font-awesome-icon>
-                        Fetching cache metrics failed.
-                    </strong>
-                    <p v-text="error.message"></p>
-                </div>
-            </div>
-            <div class="level cache-current" v-if="current">
-                <div class="level-item has-text-centered">
-                    <div>
-                        <p class="heading has-bullet has-bullet-info">Hits</p>
-                        <p v-text="current.hit"></p>
-                    </div>
-                </div>
-                <div class="level-item has-text-centered">
-                    <div>
-                        <p class="heading has-bullet has-bullet-warning">Total</p>
-                        <p v-text="current.total"></p>
-                    </div>
-                </div>
-                <div class="level-item has-text-centered">
-                    <div>
-                        <p class="heading">Hit ratio</p>
-                        <p v-text="ratio"></p>
-                    </div>
-                </div>
-            </div>
-            <cache-chart v-if="chartData.length > 0" :data="chartData"></cache-chart>
+  <sba-panel :title="`Cache: ${cacheName}`" v-if="hasLoaded">
+    <div>
+      <div v-if="error" class="message is-danger">
+        <div class="message-body">
+          <strong>
+            <font-awesome-icon class="has-text-danger" icon="exclamation-triangle"/>
+            Fetching cache metrics failed.
+          </strong>
+          <p v-text="error.message"/>
         </div>
-    </sba-panel>
+      </div>
+      <div class="level cache-current" v-if="current">
+        <div class="level-item has-text-centered">
+          <div>
+            <p class="heading has-bullet has-bullet-info">Hits</p>
+            <p v-text="current.hit"/>
+          </div>
+        </div>
+        <div class="level-item has-text-centered">
+          <div>
+            <p class="heading has-bullet has-bullet-warning">Misses</p>
+            <p v-text="current.miss"/>
+          </div>
+        </div>
+        <div class="level-item has-text-centered">
+          <div>
+            <p class="heading">Hit ratio</p>
+            <p v-text="ratio"/>
+          </div>
+        </div>
+        <div class="level-item has-text-centered">
+          <div>
+            <p class="heading">Size</p>
+            <p v-text="current.size"/>
+          </div>
+        </div>
+      </div>
+      <cache-chart v-if="chartData.length > 0" :data="chartData"/>
+    </div>
+  </sba-panel>
 </template>
 
 <script>
   import subscribing from '@/mixins/subscribing';
+  import Instance from '@/services/instance';
   import {Observable} from '@/utils/rxjs';
   import moment from 'moment';
   import cacheChart from './cache-chart';
 
   export default {
-    props: ['instance', 'cacheName'],
+    props: {
+      instance: {
+        type: Instance,
+        required: true
+      },
+      cacheName: {
+        type: String,
+        required: true
+      }
+    },
     mixins: [subscribing],
     components: {cacheChart},
     data: () => ({
@@ -76,9 +92,6 @@
       }
     },
     watch: {
-      instance() {
-        this.subscribe()
-      },
       dataSource() {
         this.current = null;
         this.chartData = [];
@@ -86,14 +99,17 @@
     },
     methods: {
       async fetchMetrics() {
-        const responseHit = this.instance.fetchMetric('cache.requests', {name: this.cacheName, result: 'hit'});
-        const responseMiss = this.instance.fetchMetric('cache.requests', {name: this.cacheName, result: 'miss'});
+        const responseHit = this.instance.fetchMetric('cache.gets', {name: this.cacheName, result: 'hit'});
+        const responseMiss = this.instance.fetchMetric('cache.gets', {name: this.cacheName, result: 'miss'});
+        const responsSize = this.instance.fetchMetric('cache.size', {name: this.cacheName});
         const hit = (await responseHit).data.measurements[0].value;
         const miss = (await responseMiss).data.measurements[0].value;
+        const size = (await responsSize).data.measurements[0].value;
         return {
           hit,
           miss,
-          total: hit + miss
+          total: hit + miss,
+          size
         };
       },
       createSubscription() {
@@ -103,6 +119,7 @@
             .concatMap(vm.fetchMetrics)
             .subscribe({
               next: data => {
+                vm.hasLoaded = true;
                 vm.current = data;
                 vm.chartData.push({...data, timestamp: moment.now().valueOf()});
               },
@@ -119,7 +136,7 @@
 </script>
 
 <style lang="scss">
-    .datasource-current {
-        margin-bottom: 0 !important;
-    }
+  .datasource-current {
+    margin-bottom: 0 !important;
+  }
 </style>

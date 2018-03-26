@@ -24,7 +24,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
-import java.util.OptionalLong;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -70,9 +69,9 @@ public class InstanceWebClientTest {
 
         StepVerifier.create(exchange).expectNextCount(1).verifyComplete();
         wireMock.verify(1,
-                getRequestedFor(urlEqualTo("/status")).withHeader(ACCEPT, equalTo(MediaType.APPLICATION_JSON_VALUE))
-                                                      .withHeader(ACCEPT, equalTo(ActuatorMediaType.V1_JSON))
-                                                      .withHeader(ACCEPT, equalTo(ActuatorMediaType.V2_JSON)));
+            getRequestedFor(urlEqualTo("/status")).withHeader(ACCEPT, equalTo(MediaType.APPLICATION_JSON_VALUE))
+                                                  .withHeader(ACCEPT, equalTo(ActuatorMediaType.V1_JSON))
+                                                  .withHeader(ACCEPT, equalTo(ActuatorMediaType.V2_JSON)));
     }
 
     @Test
@@ -122,19 +121,21 @@ public class InstanceWebClientTest {
 
         String responseBody = "{ \"status\" : \"UP\", \"foo\" : \"bar\" }";
         wireMock.stubFor(get("/status").willReturn(
-                okForContentType(ActuatorMediaType.V1_JSON, responseBody).withHeader(CONTENT_LENGTH,
-                        Integer.toString(responseBody.length())).withHeader("X-Custom", "1234")));
+            okForContentType(ActuatorMediaType.V1_JSON, responseBody).withHeader(CONTENT_LENGTH,
+                Integer.toString(responseBody.length())).withHeader("X-Custom", "1234")));
 
         Mono<ClientResponse> exchange = instanceWebClient.instance(instance).get().uri("health").exchange();
 
 
         StepVerifier.create(exchange).assertNext(response -> {
-            assertThat(response.headers().contentLength()).isEqualTo(OptionalLong.of(responseBody.length()));
+            assertThat(response.headers().contentLength()).isEmpty();
             assertThat(response.headers().contentType()).contains(MediaType.parseMediaType(ActuatorMediaType.V2_JSON));
             assertThat(response.headers().header("X-Custom")).containsExactly("1234");
             assertThat(response.headers().header(CONTENT_TYPE)).containsExactly(ActuatorMediaType.V2_JSON);
+            assertThat(response.headers().header(CONTENT_LENGTH)).isEmpty();
             assertThat(response.headers().asHttpHeaders().get("X-Custom")).containsExactly("1234");
             assertThat(response.headers().asHttpHeaders().get(CONTENT_TYPE)).containsExactly(ActuatorMediaType.V2_JSON);
+            assertThat(response.headers().asHttpHeaders().get(CONTENT_LENGTH)).isNull();
             assertThat(response.statusCode()).isEqualTo(HttpStatus.OK);
         }).verifyComplete();
 
@@ -181,7 +182,7 @@ public class InstanceWebClientTest {
     @Test
     public void should_error_on_timeout() {
         InstanceWebClient fastTimeoutClient = new InstanceWebClient(headersProvider, Duration.ofMillis(10),
-                Duration.ofMillis(10));
+            Duration.ofMillis(10));
 
         wireMock.stubFor(get("/foo").willReturn(ok().withFixedDelay(100)));
 

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin.server.config;
 
 import de.codecentric.boot.admin.server.domain.values.Registration;
@@ -24,7 +25,6 @@ import de.codecentric.boot.admin.server.utils.jackson.RegistrationDeserializer;
 import de.codecentric.boot.admin.server.utils.jackson.SanitizingMapSerializer;
 import de.codecentric.boot.admin.server.web.ApplicationsController;
 import de.codecentric.boot.admin.server.web.InstancesController;
-import de.codecentric.boot.admin.server.web.client.HttpHeadersProvider;
 import de.codecentric.boot.admin.server.web.client.InstanceWebClient;
 import de.codecentric.boot.admin.server.web.servlet.InstancesProxyController;
 
@@ -49,7 +49,7 @@ public class AdminServerWebConfiguration {
         SimpleModule module = new SimpleModule();
         module.addDeserializer(Registration.class, new RegistrationDeserializer());
         module.setSerializerModifier(new RegistrationBeanSerializerModifier(
-                new SanitizingMapSerializer(adminServerProperties.getMetadataKeysToSanitize())));
+            new SanitizingMapSerializer(adminServerProperties.getMetadataKeysToSanitize())));
         return module;
     }
 
@@ -58,14 +58,6 @@ public class AdminServerWebConfiguration {
     public InstancesController instancesController(InstanceRegistry instanceRegistry, InstanceEventStore eventStore) {
         return new InstancesController(instanceRegistry, eventStore);
     }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public InstanceWebClient instanceWebClient(HttpHeadersProvider httpHeadersProvider) {
-        return new InstanceWebClient(httpHeadersProvider, adminServerProperties.getMonitor().getConnectTimeout(),
-                adminServerProperties.getMonitor().getReadTimeout());
-    }
-
 
     @Bean
     @ConditionalOnMissingBean
@@ -87,17 +79,17 @@ public class AdminServerWebConfiguration {
         @ConditionalOnMissingBean
         public de.codecentric.boot.admin.server.web.reactive.InstancesProxyController instancesProxyController(
 
-                InstanceRegistry instanceRegistry, InstanceWebClient instanceWebClient) {
+            InstanceRegistry instanceRegistry, InstanceWebClient instanceWebClient) {
             return new de.codecentric.boot.admin.server.web.reactive.InstancesProxyController(
-                    adminServerProperties.getContextPath(),
-                    adminServerProperties.getInstanceProxy().getIgnoredHeaders(), instanceRegistry, instanceWebClient);
+                adminServerProperties.getContextPath(), adminServerProperties.getInstanceProxy().getIgnoredHeaders(),
+                instanceRegistry, instanceWebClient);
         }
 
         @Bean
         public org.springframework.web.reactive.result.method.annotation.RequestMappingHandlerMapping adminHandlerMapping(
-                RequestedContentTypeResolver webFluxContentTypeResolver) {
+            RequestedContentTypeResolver webFluxContentTypeResolver) {
             org.springframework.web.reactive.result.method.annotation.RequestMappingHandlerMapping mapping = new de.codecentric.boot.admin.server.web.reactive.AdminControllerHandlerMapping(
-                    adminServerProperties.getContextPath());
+                adminServerProperties.getContextPath());
             mapping.setOrder(0);
             mapping.setContentTypeResolver(webFluxContentTypeResolver);
             return mapping;
@@ -118,15 +110,15 @@ public class AdminServerWebConfiguration {
         public InstancesProxyController instancesProxyController(InstanceRegistry instanceRegistry,
                                                                  InstanceWebClient instanceWebClient) {
             return new InstancesProxyController(adminServerProperties.getContextPath(),
-                    adminServerProperties.getInstanceProxy().getIgnoredHeaders(), instanceRegistry, instanceWebClient,
-                    adminServerProperties.getMonitor().getReadTimeout());
+                adminServerProperties.getInstanceProxy().getIgnoredHeaders(), instanceRegistry, instanceWebClient,
+                adminServerProperties.getMonitor().getReadTimeout());
         }
 
         @Bean
         public org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping adminHandlerMapping(
-                ContentNegotiationManager contentNegotiationManager) {
+            ContentNegotiationManager contentNegotiationManager) {
             org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping mapping = new de.codecentric.boot.admin.server.web.servlet.AdminControllerHandlerMapping(
-                    adminServerProperties.getContextPath());
+                adminServerProperties.getContextPath());
             mapping.setOrder(0);
             mapping.setContentNegotiationManager(contentNegotiationManager);
             return mapping;

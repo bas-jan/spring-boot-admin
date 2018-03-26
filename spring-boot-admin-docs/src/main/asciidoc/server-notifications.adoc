@@ -1,6 +1,7 @@
 === Notifications ===
 
-[reminder-notifications]
+
+[[reminder-notifications]]
 ==== Reminder notifications ====
 The `RemindingNotifier` sends reminders for down/offline applications, it delegates the sending of notifications to another notifier.
 
@@ -34,13 +35,14 @@ public class NotifierConfiguration {
 <1> The reminders will be sent every 5 minutes.
 <2> Schedules sending of due reminders every 60 seconds.
 
+
 [[filtering-notifications]]
 ==== Filtering notifications ====
 The `FilteringNotifier` allows you to filter certain notification based on rules you can add/remove at runtime. It delegates the sending of notifications to another notifier.
 
-If you add a `FilteringNotifier` to your `ApplicationContext` a RESTful interface on `api/notifications/filter` gets available. When this happens the ui shows options to manage the filters.
+If you add a `FilteringNotifier` to your `ApplicationContext` a RESTful interface on `api/notifications/filter` gets available.
 
-This notifier is useful if you don't want recieve notifications when deploying your applications. Before stopping the application you can add an (expiring) filter either via a `POST` request or the ui.
+This notifier is useful if you don't want recieve notifications when deploying your applications. Before stopping the application you can add an (expiring) filter either via a `POST` request.
 
 .How to configure filtering
 [source,java]
@@ -74,6 +76,7 @@ public class NotifierConfiguration {
 <2> Add the `RemindingNotifier` as primary bean using the `FilteringNotifier` as delegate.
 
 TIP: This example combines the reminding and filtering notifiers. This allows you to get notifications after the deployed application hasn't restarted in a certain amount of time (until the filter expires).
+
 
 [[mail-notifications]]
 ==== Mail notifications ====
@@ -127,6 +130,7 @@ spring.boot.admin.notify.mail.to=admin@example.com
 | Mail body. SpEL-expressions are supported
 | `+++"#{application.name} (#{application.id})\nstatus changed from #{from.status} to #{to.status}\n\n#{application.healthUrl}"+++`
 |===
+
 
 [[pagerduty-notifications]]
 ==== PagerDuty notifications ====
@@ -219,9 +223,10 @@ To enable https://www.opsgenie.com/[OpsGenie] notifications you just have to add
 |
 |===
 
-[hipchat-notifications]
+
+[[hipchat-notifications]]
 ==== Hipchat notifications ====
-To enable https://www.hipchat.com/[Hipchat] notifications you need to create an API token from you Hipchat account and set the appropriate configuration properties.
+To enable https://www.hipchat.com/[Hipchat] notifications you need to create an API token on your Hipchat account and set the appropriate configuration properties.
 
 .Hipchat notifications configuration options
 |===
@@ -257,7 +262,8 @@ To enable https://www.hipchat.com/[Hipchat] notifications you need to create an 
 |
 |===
 
-[slack-notifications]
+
+[[slack-notifications]]
 ==== Slack notifications ====
 To enable https://slack.com/[Slack] notifications you need to add a incoming Webhook under custom integrations on your Slack
 account and configure it appropriately.
@@ -296,7 +302,8 @@ account and configure it appropriately.
 |
 |===
 
-[letschat-notifications]
+
+[[letschat-notifications]]
 ==== Let's Chat notifications ====
 To enable https://sdelements.github.io/lets-chat/[Let's Chat] notifications you need to add the host url and add the API token and username from Let's Chat
 
@@ -334,7 +341,8 @@ To enable https://sdelements.github.io/lets-chat/[Let's Chat] notifications you 
 |
 |===
 
-[ms-teams-notifications]
+
+[[ms-teams-notifications]]
 ==== Microsoft Teams notifications ====
 To enable Microsoft Teams notifications you need to setup a connector webhook url and set the appropriate configuration property.
 
@@ -355,7 +363,8 @@ To enable Microsoft Teams notifications you need to setup a connector webhook ur
 |
 |===
 
-[telegram-notifications]
+
+[[telegram-notifications]]
 ==== Telegram notifications ====
 To enable https://telegram.org/[Telegram] notifications you need to create and authorize a telegram bot and set the appropriate configuration properties for auth-token and chat-id.
 

@@ -20,7 +20,10 @@ import de.codecentric.boot.admin.server.domain.values.Endpoint;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.DateTimeException;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -54,6 +57,8 @@ public class LegacyEndpointConverters {
     };
     private static final Jackson2JsonDecoder DECODER;
     private static final Jackson2JsonEncoder ENCODER;
+    private static final DateTimeFormatter TIMESTAMP_PATTERN = DateTimeFormatter.ofPattern(
+        "yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 
     static {
         ObjectMapper om = Jackson2ObjectMapperBuilder.json()
@@ -65,32 +70,36 @@ public class LegacyEndpointConverters {
 
     public static LegacyEndpointConverter health() {
         return new LegacyEndpointConverter(Endpoint.HEALTH,
-                convertUsing(RESPONSE_TYPE_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertHealth));
+            convertUsing(RESPONSE_TYPE_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertHealth));
     }
 
     public static LegacyEndpointConverter env() {
         return new LegacyEndpointConverter(Endpoint.ENV,
-                convertUsing(RESPONSE_TYPE_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertEnv));
+            convertUsing(RESPONSE_TYPE_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertEnv));
     }
 
     public static LegacyEndpointConverter httptrace() {
         return new LegacyEndpointConverter(Endpoint.HTTPTRACE,
-                convertUsing(RESPONSE_TYPE_LIST_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertHttptrace));
+            convertUsing(RESPONSE_TYPE_LIST_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertHttptrace));
     }
 
     public static LegacyEndpointConverter threaddump() {
         return new LegacyEndpointConverter(Endpoint.THREADDUMP,
-                convertUsing(RESPONSE_TYPE_LIST, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertThreaddump));
+            convertUsing(RESPONSE_TYPE_LIST, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertThreaddump));
     }
 
     public static LegacyEndpointConverter liquibase() {
         return new LegacyEndpointConverter(Endpoint.LIQUIBASE,
-                convertUsing(RESPONSE_TYPE_LIST_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertLiquibase));
+            convertUsing(RESPONSE_TYPE_LIST_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertLiquibase));
     }
 
     public static LegacyEndpointConverter flyway() {
         return new LegacyEndpointConverter(Endpoint.FLYWAY,
-                convertUsing(RESPONSE_TYPE_LIST_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertFlyway));
+            convertUsing(RESPONSE_TYPE_LIST_MAP, RESPONSE_TYPE_MAP, LegacyEndpointConverters::convertFlyway));
+    }
+
+    public static LegacyEndpointConverter info() {
+        return new LegacyEndpointConverter(Endpoint.INFO, flux -> flux);
     }
 
     @SuppressWarnings("unchecked")
@@ -100,7 +109,7 @@ public class LegacyEndpointConverters {
         return input -> DECODER.decodeToMono(input, ResolvableType.forType(sourceType), null, null)
                                .map(body -> converterFn.apply((S) body))
                                .flatMapMany(output -> ENCODER.encode(Mono.just(output), new DefaultDataBufferFactory(),
-                                       ResolvableType.forType(targetType), null, null));
+                                   ResolvableType.forType(targetType), null, null));
     }
 
     @SuppressWarnings("unchecked")
@@ -151,13 +160,13 @@ public class LegacyEndpointConverters {
 
     private static Map<String, Object> convertHttptrace(List<Map<String, Object>> traces) {
         return singletonMap("traces",
-                traces.stream().sequential().map(LegacyEndpointConverters::convertHttptrace).collect(toList()));
+            traces.stream().sequential().map(LegacyEndpointConverters::convertHttptrace).collect(toList()));
     }
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> convertHttptrace(Map<String, Object> in) {
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("timestamp", Instant.ofEpochMilli((Long) in.get("timestamp")));
+        out.put("timestamp", getInstant(in.get("timestamp")));
         Map<String, Object> in_info = (Map<String, Object>) in.get("info");
         if (in_info != null) {
             Map<String, Object> request = new LinkedHashMap<>();
@@ -203,10 +212,14 @@ public class LegacyEndpointConverters {
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> convertLiquibase(List<Map<String, Object>> reports) {
-        return reports.stream().sequential()
-                      .collect(toMap(r -> (String) r.get("name"), r -> singletonMap("changeSets",
-                              LegacyEndpointConverters.convertLiquibaseChangesets(
-                                      (List<Map<String, Object>>) r.get("changeLogs")))));
+        Map<String, Object> liquibaseBeans = reports.stream()
+                                                    .sequential()
+                                                    .collect(toMap(r -> (String) r.get("name"),
+                                                        r -> singletonMap("changeSets",
+                                                            LegacyEndpointConverters.convertLiquibaseChangesets(
+                                                                (List<Map<String, Object>>) r.get("changeLogs")))));
+
+        return singletonMap("contexts", singletonMap("application", singletonMap("liquibaseBeans", liquibaseBeans)));
     }
 
     private static List<Map<String, Object>> convertLiquibaseChangesets(List<Map<String, Object>> changeSets) {
@@ -225,11 +238,11 @@ public class LegacyEndpointConverters {
             converted.put("comments", changeset.get("COMMENTS"));
             converted.put("tag", changeset.get("TAG"));
             converted.put("contexts", changeset.get("CONTEXTS") instanceof String ?
-                    new LinkedHashSet<>(asList(((String) changeset.get("CONTEXTS")).split(",\\s*"))) :
-                    emptySet());
+                new LinkedHashSet<>(asList(((String) changeset.get("CONTEXTS")).split(",\\s*"))) :
+                emptySet());
             converted.put("labels", changeset.get("LABELS") instanceof String ?
-                    new LinkedHashSet<>(asList(((String) changeset.get("LABELS")).split(",\\s*"))) :
-                    emptySet());
+                new LinkedHashSet<>(asList(((String) changeset.get("LABELS")).split(",\\s*"))) :
+                emptySet());
             converted.put("deploymentId", changeset.get("DEPLOYMENT_ID"));
             return converted;
         }).collect(toList());
@@ -237,10 +250,13 @@ public class LegacyEndpointConverters {
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> convertFlyway(List<Map<String, Object>> reports) {
-        return reports.stream().sequential()
-                      .collect(toMap(r -> (String) r.get("name"), r -> singletonMap("migrations",
-                              LegacyEndpointConverters.convertFlywayMigrations(
-                                      (List<Map<String, Object>>) r.get("migrations")))));
+        Map<String, Object> flywayBeans = reports.stream()
+                                                 .sequential()
+                                                 .collect(toMap(r -> (String) r.get("name"),
+                                                     r -> singletonMap("migrations",
+                                                         LegacyEndpointConverters.convertFlywayMigrations(
+                                                             (List<Map<String, Object>>) r.get("migrations")))));
+        return singletonMap("contexts", singletonMap("application", singletonMap("flywayBeans", flywayBeans)));
     }
 
     private static List<Map<String, Object>> convertFlywayMigrations(List<Map<String, Object>> migrations) {
@@ -251,5 +267,18 @@ public class LegacyEndpointConverters {
             }
             return converted;
         }).collect(toList());
+    }
+
+    private static Instant getInstant(Object o) {
+        try {
+            if (o instanceof String) {
+                return OffsetDateTime.parse((String) o, TIMESTAMP_PATTERN).toInstant();
+            } else if (o instanceof Long) {
+                return Instant.ofEpochMilli((Long) o);
+            }
+        } catch (DateTimeException | ClassCastException e) {
+            return null;
+        }
+        return null;
     }
 }

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin.server.config;
 
 import de.codecentric.boot.admin.server.domain.entities.InstanceRepository;
@@ -25,6 +26,7 @@ import de.codecentric.boot.admin.server.notify.MicrosoftTeamsNotifier;
 import de.codecentric.boot.admin.server.notify.NotificationTrigger;
 import de.codecentric.boot.admin.server.notify.Notifier;
 import de.codecentric.boot.admin.server.notify.OpsGenieNotifier;
+import de.codecentric.boot.admin.server.notify.PagerdutyNotifier;
 import de.codecentric.boot.admin.server.notify.SlackNotifier;
 import de.codecentric.boot.admin.server.notify.TelegramNotifier;
 import de.codecentric.boot.admin.server.notify.filter.FilteringNotifier;
@@ -48,7 +50,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.mail.MailSender;
 
 @Configuration
-public class AdminServerNotifierConfiguration {
+@AutoConfigureAfter({MailSenderAutoConfiguration.class})
+public class AdminServerNotifierAutoConfiguration {
 
     @Configuration
     @ConditionalOnBean(Notifier.class)
@@ -95,12 +98,12 @@ public class AdminServerNotifierConfiguration {
         public NotificationFilterController notificationFilterController() {
             return new NotificationFilterController(filteringNotifier);
         }
+
     }
 
     @Configuration
-    @ConditionalOnBean(MailSender.class)
-    @AutoConfigureAfter({MailSenderAutoConfiguration.class})
     @AutoConfigureBefore({NotifierTriggerConfiguration.class, CompositeNotifierConfiguration.class})
+    @ConditionalOnBean(MailSender.class)
     public static class MailNotifierConfiguration {
         @Bean
         @ConditionalOnMissingBean
@@ -143,6 +146,18 @@ public class AdminServerNotifierConfiguration {
         @ConfigurationProperties("spring.boot.admin.notify.letschat")
         public LetsChatNotifier letsChatNotifier(InstanceRepository repository) {
             return new LetsChatNotifier(repository);
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "spring.boot.admin.notify.pagerduty", name = "service-key")
+    @AutoConfigureBefore({NotifierTriggerConfiguration.class, CompositeNotifierConfiguration.class})
+    public static class PagerdutyNotifierConfiguration {
+        @Bean
+        @ConditionalOnMissingBean
+        @ConfigurationProperties("spring.boot.admin.notify.pagerduty")
+        public PagerdutyNotifier pagerdutyNotifier(InstanceRepository repository) {
+            return new PagerdutyNotifier(repository);
         }
     }
 

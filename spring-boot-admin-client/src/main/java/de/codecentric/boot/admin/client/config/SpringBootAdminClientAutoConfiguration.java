@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package de.codecentric.boot.admin.client.config;
 
 import de.codecentric.boot.admin.client.registration.ApplicationFactory;
@@ -20,8 +21,14 @@ import de.codecentric.boot.admin.client.registration.ApplicationRegistrator;
 import de.codecentric.boot.admin.client.registration.DefaultApplicationFactory;
 import de.codecentric.boot.admin.client.registration.RegistrationApplicationListener;
 import de.codecentric.boot.admin.client.registration.ServletApplicationFactory;
+import de.codecentric.boot.admin.client.registration.metadata.CompositeMetadataContributor;
+import de.codecentric.boot.admin.client.registration.metadata.MetadataContributor;
+import de.codecentric.boot.admin.client.registration.metadata.StartupDateMetadataContributor;
 
+import java.util.Collections;
+import java.util.List;
 import javax.servlet.ServletContext;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointProperties;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.servlet.WebMvcEndpointManagementContextConfiguration;
@@ -36,6 +43,7 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.scheduling.TaskScheduler;
@@ -44,10 +52,10 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import static org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication.Type;
 
 @Configuration
-@EnableConfigurationProperties({ClientProperties.class, InstanceProperties.class})
 @ConditionalOnWebApplication
 @Conditional(SpringBootAdminClientEnabledCondition.class)
 @AutoConfigureAfter(WebMvcEndpointManagementContextConfiguration.class)
+@EnableConfigurationProperties({ClientProperties.class, InstanceProperties.class})
 public class SpringBootAdminClientAutoConfiguration {
 
     @Configuration
@@ -60,9 +68,10 @@ public class SpringBootAdminClientAutoConfiguration {
                                                      ServerProperties server,
                                                      ServletContext servletContext,
                                                      PathMappedEndpoints pathMappedEndpoints,
-                                                     WebEndpointProperties webEndpoint) {
+                                                     WebEndpointProperties webEndpoint,
+                                                     MetadataContributor metadataContributor) {
             return new ServletApplicationFactory(instance, management, server, servletContext, pathMappedEndpoints,
-                    webEndpoint);
+                webEndpoint, metadataContributor);
         }
     }
 
@@ -75,8 +84,10 @@ public class SpringBootAdminClientAutoConfiguration {
                                                      ManagementServerProperties management,
                                                      ServerProperties server,
                                                      PathMappedEndpoints pathMappedEndpoints,
-                                                     WebEndpointProperties webEndpoint) {
-            return new DefaultApplicationFactory(instance, management, server, pathMappedEndpoints, webEndpoint);
+                                                     WebEndpointProperties webEndpoint,
+                                                     MetadataContributor metadataContributor) {
+            return new DefaultApplicationFactory(instance, management, server, pathMappedEndpoints, webEndpoint,
+                metadataContributor);
         }
     }
 
@@ -96,16 +107,6 @@ public class SpringBootAdminClientAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    public ApplicationFactory applicationFactory(InstanceProperties instance,
-                                                 ManagementServerProperties management,
-                                                 ServerProperties server,
-                                                 PathMappedEndpoints pathMappedEndpoints,
-                                                 WebEndpointProperties webEndpoint) {
-        return new DefaultApplicationFactory(instance, management, server, pathMappedEndpoints, webEndpoint);
-    }
-
-    @Bean
     @Qualifier("registrationTaskScheduler")
     public TaskScheduler registrationTaskScheduler() {
         ThreadPoolTaskScheduler taskScheduler = new ThreadPoolTaskScheduler();
@@ -120,10 +121,25 @@ public class SpringBootAdminClientAutoConfiguration {
     public RegistrationApplicationListener registrationListener(ClientProperties client,
                                                                 ApplicationRegistrator registrator) {
         RegistrationApplicationListener listener = new RegistrationApplicationListener(registrator,
-                registrationTaskScheduler());
+            registrationTaskScheduler());
         listener.setAutoRegister(client.isAutoRegistration());
         listener.setAutoDeregister(client.isAutoDeregistration());
         listener.setRegisterPeriod(client.getPeriod());
         return listener;
     }
+
+    @Bean
+    @Primary
+    @ConditionalOnMissingBean
+    public CompositeMetadataContributor metadataContributor(ObjectProvider<List<MetadataContributor>> contributorProvider) {
+        List<MetadataContributor> contributors = contributorProvider.getIfAvailable(Collections::emptyList);
+        return new CompositeMetadataContributor(contributors);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public StartupDateMetadataContributor startupDateMetadataContributor() {
+        return new StartupDateMetadataContributor();
+    }
 }
+
