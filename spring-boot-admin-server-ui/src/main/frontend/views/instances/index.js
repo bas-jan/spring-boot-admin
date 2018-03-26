@@ -17,6 +17,7 @@
 import sbaInstancesAuditevents from './auditevents';
 import sbaInstancesDetails from './details';
 import sbaInstancesEnv from './env';
+import sbaInstancesMappings from './mappings';
 import sbaInstancesFlyway from './flyway';
 import sbaInstancesTrace from './httptrace';
 import sbaInstancesJolokia from './jolokia';
@@ -33,6 +34,8 @@ export default [{
     path: '', component: sbaInstancesDetails, props: true, name: 'instance/details'
   }, {
     path: 'env', component: sbaInstancesEnv, props: true, name: 'instance/env'
+  }, {
+    path: 'mappings', component: sbaInstancesMappings, props: true, name: 'instance/mappings'
   }, {
     path: 'logfile', component: sbaInstancesLogfile, props: true, name: 'instance/logfile'
   }, {
@@ -61,6 +64,11 @@ export default [{
   handle: 'Environment',
   order: 100,
   isActive: ({instance}) => instance.hasEndpoint('env')
+}, {
+  name: 'instance/mappings',
+  handle: 'Mappings',
+  order: 150,
+  isActive: ({instance}) => instance.hasEndpoint('mappings')
 }, {
   name: 'instance/logfile',
   handle: 'Logfile',

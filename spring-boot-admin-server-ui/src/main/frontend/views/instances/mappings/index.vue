@@ -20,7 +20,7 @@
       <div v-if="error" class="message is-danger">
         <div class="message-body">
           <strong>
-            <font-awesome-icon class="has-text-danger" icon="exclamation-triangle"></font-awesome-icon>
+            <font-awesome-icon class="has-text-danger" icon="exclamation-triangle"/>
             Fetching mappings failed.
           </strong>
         </div>
@@ -32,26 +32,31 @@
           </p>
         </div>
       </div>
-      <div class="content" v-if="mappings">
-        <sba-panel>
-          <table class="table">
-            <tr v-for="(value, key) in mappings" :key="key">
-              <td class="info__key" v-text="key"></td>
-              <td>
-                <sba-formatted-obj :value="value"></sba-formatted-obj>
-              </td>
-            </tr>
-          </table>
-          <p v-else class="is-muted">No mappings found.</p>
-        </sba-panel>
-      </div>
+      <sba-panel>
+        <table class="table is-fullwidth" v-if="mappings">
+          <tr v-for="(value, key) in mappings" :key="key">
+            <td class="info__key" v-text="key"/>
+            <td>
+              <sba-formatted-obj :value="value"/>
+            </td>
+          </tr>
+        </table>
+        <p v-else class="is-muted">No mappings found.</p>
+      </sba-panel>
     </div>
   </section>
 </template>
 
 <script>
+  import Instance from '@/services/instance';
+
   export default {
-    props: ['instance'],
+    props: {
+      instance: {
+        type: Instance,
+        required: true
+      }
+    },
 
     data: () => ({
       hasLoaded: false,
